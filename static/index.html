@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ops Tracker</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1d2433; --muted:#667085; --line:#e4e7ec; --accent:#2457d6; --red:#c4320a; --amber:#b54708; --green:#067647; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--ink); }
+  header { display:flex; align-items:center; gap:12px; padding:10px 16px; background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:2; }
+  header h1 { font-size:16px; margin:0 auto 0 0; }
+  button, select, input, textarea { font:inherit; }
+  button { border:1px solid var(--line); background:var(--card); border-radius:6px; padding:6px 10px; cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  input, select, textarea { border:1px solid var(--line); border-radius:6px; padding:6px 8px; background:#fff; }
+  main { display:grid; grid-template-columns: minmax(0,1.25fr) minmax(0,1fr); gap:16px; padding:16px; max-width:1400px; margin:0 auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  .tiles { display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-bottom:12px; }
+  .tile { cursor:pointer; text-align:left; }
+  .tile b { display:block; font-size:22px; }
+  .filters { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  tr.row { cursor:pointer; } tr.row:hover, tr.row.sel { background:#eef3ff; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:99px; font-size:12px; background:#eef0f3; }
+  .p-urgent { background:#fee4e2; color:var(--red); } .p-high { background:#fef0c7; color:var(--amber); }
+  .s-awaiting_approval { background:#fef0c7; color:var(--amber); } .s-resolved, .s-closed, .s-approved { background:#dcfae6; color:var(--green); }
+  .muted { color:var(--muted); }
+  .actions { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }
+  .banner { padding:8px 10px; border-radius:6px; margin:8px 0; }
+  .banner.err { background:#fee4e2; color:var(--red); } .banner.ok { background:#dcfae6; color:var(--green); }
+  .history li { margin-bottom:6px; }
+  #login { max-width:380px; margin:60px auto; }
+  #login label { display:block; margin:8px 0 2px; }
+  #login input { width:100%; }
+  dialog { border:1px solid var(--line); border-radius:10px; width:min(480px, 92vw); }
+  dialog label { display:block; margin:8px 0 2px; } dialog input, dialog select, dialog textarea { width:100%; }
+</style>
+</head>
+<body>
+<section id="login" class="card" hidden>
+  <h2>Ops Tracker</h2>
+  <form id="login-form">
+    <label for="email">Email</label><input id="email" value="agent@ops.demo" autocomplete="username">
+    <label for="password">Password</label><input id="password" type="password" value="demo1234" autocomplete="current-password">
+    <p><button class="primary" type="submit">Sign in</button></p>
+    <p class="muted">Demo accounts (password demo1234): admin@, lead.support@, agent@, agent2@, lead.eng@, dev@, lead.fin@ops.demo</p>
+    <div id="login-error" class="banner err" hidden></div>
+  </form>
+</section>
+
+<div id="app" hidden>
+  <header>
+    <h1>Ops Tracker</h1>
+    <span id="who" class="muted"></span>
+    <button id="notif-btn">🔔 <span id="unread">0</span></button>
+    <button id="new-btn" class="primary">New work item</button>
+    <button id="logout-btn">Sign out</button>
+  </header>
+  <main>
+    <section>
+      <div class="tiles">
+        <button class="tile card" data-view="attention"><span class="muted">Needs my attention</span><b id="t-mine">–</b></button>
+        <button class="tile card" data-filter="assignee=none&status=open"><span class="muted">Unassigned</span><b id="t-unassigned">–</b></button>
+        <button class="tile card" data-filter="priority=urgent&status=open,in_progress,awaiting_approval,approved"><span class="muted">Urgent</span><b id="t-urgent">–</b></button>
+        <button class="tile card" data-filter="status=awaiting_approval"><span class="muted">To approve</span><b id="t-approve">–</b></button>
+      </div>
+      <div class="card">
+        <form class="filters" id="filters">
+          <input name="q" placeholder="Search title or description" aria-label="Search">
+          <select name="team" aria-label="Team"><option value="">All my teams</option></select>
+          <select name="status" aria-label="Status"><option value="">Active (not closed)</option>
+            <option>open</option><option>in_progress</option><option>awaiting_approval</option><option>approved</option><option>resolved</option><option>closed</option></select>
+          <select name="priority" aria-label="Priority"><option value="">Any priority</option><option>urgent</option><option>high</option><option>medium</option><option>low</option></select>
+          <select name="assignee" aria-label="Assignee"><option value="">Anyone</option><option value="me">Me</option><option value="none">Unassigned</option></select>
+          <button type="submit">Filter</button>
+        </form>
+        <table>
+          <thead><tr><th>#</th><th>Title</th><th>Team</th><th>Priority</th><th>Status</th><th>Owner</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <p><button id="more" hidden>Load more</button></p>
+        <p id="list-empty" class="muted" hidden>No work items match.</p>
+      </div>
+    </section>
+    <section class="card" id="detail"><p class="muted">Select a work item to see its details and history.</p></section>
+  </main>
+</div>
+
+<dialog id="new-dialog">
+  <form id="new-form" method="dialog">
+    <h3>New work item</h3>
+    <label for="n-title">Title</label><input id="n-title" required maxlength="200">
+    <label for="n-team">Team</label><select id="n-team"></select>
+    <label for="n-kind">Type</label>
+    <select id="n-kind"><option value="customer_issue">Customer issue</option><option value="engineering">Engineering</option>
+      <option value="payment">Payment</option><option value="incident">Incident</option><option value="compliance">Compliance</option><option value="task">Task</option></select>
+    <label for="n-priority">Priority</label>
+    <select id="n-priority"><option>medium</option><option>low</option><option>high</option><option>urgent</option></select>
+    <label for="n-desc">Description</label><textarea id="n-desc" rows="4"></textarea>
+    <div id="new-error" class="banner err" hidden></div>
+    <p><button class="primary" id="create-btn" value="create">Create</button> <button value="cancel" formnovalidate>Cancel</button></p>
+  </form>
+</dialog>
+<dialog id="notif-dialog"><h3>Notifications</h3><ul id="notif-list"></ul><form method="dialog"><button>Close</button></form></dialog>
+
+<script src="app.js"></script>
+</body>
+</html>
